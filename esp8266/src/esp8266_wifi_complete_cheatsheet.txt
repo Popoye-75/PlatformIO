@@ -1,0 +1,150 @@
+ESP8266 WiFi.h COMPLETE CHEAT SHEET Beginner → Intermediate Notes
+
+  ------------------------
+  SECTION 1: BASIC SETUP
+  ------------------------
+
+#include <ESP8266WiFi.h> // ESP8266 WiFi library include karta hai
+
+const char* ssid = “YOUR_WIFI_NAME”; // WiFi router ka naam const char*
+password = “YOUR_WIFI_PASS”; // WiFi password
+
+Serial.begin(9600); // Serial monitor start karta hai debugging ke liye
+
+WiFi.begin(ssid, password); // Router se WiFi connection start karta hai
+
+  ------------------------------
+  SECTION 2: CONNECTION STATUS
+  ------------------------------
+
+WiFi.status(); // Current WiFi connection status return karta hai
+
+while (WiFi.status() != WL_CONNECTED) { // Jab tak connect nahi hota
+wait karta hai delay(500); // Half second delay }
+
+WL_CONNECTED // WiFi successfully connected WL_DISCONNECTED // WiFi
+disconnected WL_IDLE_STATUS // Connecting state WL_CONNECT_FAILED //
+Password ya authentication fail
+
+  --------------------------------
+  SECTION 3: NETWORK INFORMATION
+  --------------------------------
+
+WiFi.localIP(); // ESP8266 ka local IP address return karta hai
+WiFi.gatewayIP(); // Router ka gateway IP address WiFi.subnetMask(); //
+Network subnet mask
+
+WiFi.macAddress(); // Device ka unique MAC address
+
+WiFi.SSID(); // Connected WiFi ka naam return karta hai
+
+WiFi.RSSI(); // WiFi signal strength (dBm) me
+
+  -----------------------
+  SECTION 4: WIFI MODES
+  -----------------------
+
+WiFi.mode(WIFI_STA); // Station mode (router se connect)
+
+WiFi.mode(WIFI_AP); // Access point mode (ESP khud WiFi banata hai)
+
+WiFi.mode(WIFI_AP_STA); // Dono mode ek saath
+
+  --------------------------------------
+  SECTION 5: ACCESS POINT CREATE KARNA
+  --------------------------------------
+
+WiFi.softAP(“ESP_WIFI”,“12345678”); // ESP apna WiFi network create
+karta hai
+
+WiFi.softAPIP(); // Access point ka IP address
+
+  -------------------------
+  SECTION 6: WIFI CONTROL
+  -------------------------
+
+WiFi.disconnect(); // WiFi network se disconnect karta hai
+
+WiFi.setAutoReconnect(true); // WiFi lose hone par auto reconnect
+
+WiFi.persistent(true); // WiFi credentials flash memory me store karta
+hai
+
+WiFi.setSleepMode(WIFI_LIGHT_SLEEP); // Power saving enable
+
+  --------------------------
+  SECTION 7: WIFI SCANNING
+  --------------------------
+
+WiFi.scanNetworks(); // Nearby WiFi networks scan karta hai
+
+WiFi.SSID(i); // Scan result me index i par WiFi ka naam
+
+WiFi.RSSI(i); // Scan result ka signal strength
+
+WiFi.encryptionType(i); // WiFi security type
+
+  -----------------------------------
+  SECTION 8: COMPLETE BASIC PROGRAM
+  -----------------------------------
+
+#include <ESP8266WiFi.h>
+
+const char* ssid=“YOUR_WIFI”; const char* password=“YOUR_PASS”;
+
+void setup() {
+
+Serial.begin(9600); // Serial monitor start WiFi.mode(WIFI_STA); //
+Station mode set WiFi.begin(ssid,password); // WiFi connect start
+
+while(WiFi.status()!=WL_CONNECTED){ // Wait until connected delay(500);
+Serial.print(“.”); }
+
+Serial.println(“Connected!”); Serial.println(WiFi.localIP()); // Print
+IP address
+
+}
+
+void loop(){
+
+}
+
+  ----------------------------------
+  SECTION 9: SIGNAL STRENGTH GUIDE
+  ----------------------------------
+
+-30 dBm → Excellent signal -50 dBm → Good signal -70 dBm → Weak signal
+-80 dBm → Very weak / unstable
+
+  --------------------------------
+  SECTION 10: COMMON WIFI ERRORS
+  --------------------------------
+
+1)  ESP8266 5GHz WiFi support nahi karta Sirf 2.4GHz WiFi chalega
+
+2)  Power supply unstable ho to WiFi disconnect hota hai
+
+3)  Wrong password se WL_CONNECT_FAILED milta hai
+
+4)  Weak signal se connection unstable ho jata hai
+
+  ---------------------------------
+  SECTION 11: INTERVIEW QUESTIONS
+  ---------------------------------
+
+Q1: ESP8266 WiFi ke liye kaunsi library use karta hai? Answer:
+ESP8266WiFi.h
+
+Q2: WiFi.begin() ka purpose kya hai? Answer: Router se WiFi connection
+start karna
+
+Q3: WiFi.RSSI() kya return karta hai? Answer: Signal strength dBm me
+
+Q4: ESP8266 kaunsa WiFi band support karta hai? Answer: 2.4 GHz
+
+Q5: Access point mode ka function kya hai? Answer: ESP khud WiFi network
+create karta hai
+
+------------------------------------------------------------------------
+
+END OF NOTES

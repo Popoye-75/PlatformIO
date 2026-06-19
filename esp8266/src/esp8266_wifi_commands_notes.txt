@@ -1,0 +1,72 @@
+ESP8266 WiFi.h COMMAND NOTES
+
+1)  Library Include #include <ESP8266WiFi.h> // ESP8266 WiFi library ko
+    program me use karne ke liye include karte hain
+
+2)  WiFi Credentials const char* ssid = “YOUR_WIFI_NAME”; // Router ka
+    WiFi naam store karta hai const char* password = “YOUR_WIFI_PASS”;
+    // Router ka WiFi password store karta hai
+
+3)  Serial Communication Serial.begin(9600); // Serial monitor start
+    karta hai taaki hum output dekh saken
+
+4)  Start WiFi Connection WiFi.begin(ssid, password); // ESP8266 ko
+    given SSID aur password se WiFi router se connect karne ke liye
+    bolta hai
+
+5)  Check WiFi Status WiFi.status(); // Current WiFi connection status
+    return karta hai (connected ya nahi)
+
+6)  Wait Until Connected while (WiFi.status() != WL_CONNECTED) { // Jab
+    tak WiFi connect nahi hota tab tak loop chalta rahega delay(500); //
+    500 milliseconds ka delay Serial.print(“.”); // Serial monitor me
+    progress show karta hai }
+
+7)  Print Connected Message Serial.println(“WiFi connected!”); // Serial
+    monitor me message print karta hai jab WiFi connect ho jaye
+
+8)  Get Local IP Address WiFi.localIP(); // Router se mila hua ESP8266
+    ka IP address return karta hai
+
+9)  WiFi Mode (Station Mode) WiFi.mode(WIFI_STA); // ESP ko Station mode
+    me set karta hai (router se connect hone ke liye)
+
+10) WiFi Mode (Access Point) WiFi.mode(WIFI_AP); // ESP ko Access Point
+    mode me set karta hai (ESP khud WiFi banata hai)
+
+11) Create Access Point WiFi.softAP(“ESP_WIFI”, “12345678”); // ESP apna
+    WiFi network create karta hai jisme phone connect ho sakta hai
+
+12) Disconnect WiFi WiFi.disconnect(); // ESP ko current WiFi network se
+    disconnect karta hai
+
+13) WiFi Signal Strength WiFi.RSSI(); // Connected WiFi ka signal
+    strength dBm me return karta hai
+
+14) Get Connected WiFi Name WiFi.SSID(); // Currently connected WiFi
+    network ka naam return karta hai
+
+15) Get MAC Address WiFi.macAddress(); // ESP8266 ka unique MAC address
+    return karta hai
+
+16) Set WiFi Sleep Mode WiFi.setSleepMode(WIFI_LIGHT_SLEEP); // Power
+    save karne ke liye WiFi ko light sleep mode me set karta hai
+
+17) Enable Auto Reconnect WiFi.setAutoReconnect(true); // Agar WiFi
+    disconnect ho jaye to automatically reconnect karne ki koshish
+    karega
+
+18) Save WiFi Credentials in Flash WiFi.persistent(true); // WiFi
+    settings ko flash memory me save karta hai
+
+19) Scan Nearby WiFi Networks WiFi.scanNetworks(); // Aas paas ke
+    available WiFi networks scan karta hai
+
+20) Get WiFi Name from Scan WiFi.SSID(i); // Scan list me index i par jo
+    WiFi hai uska naam return karta hai
+
+21) Get Signal Strength from Scan WiFi.RSSI(i); // Scan list me index i
+    wale WiFi ka signal strength return karta hai
+
+22) Get Encryption Type WiFi.encryptionType(i); // Scan list me index i
+    wale WiFi ka security type batata hai

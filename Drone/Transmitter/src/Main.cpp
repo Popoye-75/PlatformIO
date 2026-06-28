@@ -8,6 +8,7 @@
 #include <Bounce2.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
+// #include "Transmitter.h"
 // #include <avr/wdt.h>
 
 // ===============================================================================
@@ -79,26 +80,441 @@ int rollTrim = 0;
 int pitchTim = 0;
 float batteryVoltage = 0.0;
 bool functionPressed = false;
+unsigned long bootStartTime = 0;
 
-// ===============================================================================
+int16_t rawLeftX;
+int16_t rawLeftY;
+int16_t rawRightX;
+int16_t rawRightY;
+
+// =========================>> JoyStick Calibration <<============================
+int16_t joy1X_Min = 0;
+int16_t joy1X_Center = 512;
+int16_t joy1X_Max = 1023;
+
+int16_t joy1Y_Min = 0;
+int16_t joy1Y_Center = 512;
+int16_t joy1Y_Max = 1023;
+
+int16_t joy2X_Min = 0;
+int16_t joy2X_Center = 512;
+int16_t joy2X_Max = 1023;
+
+int16_t joy2Y_Min = 0;
+int16_t joy2Y_Center = 512;
+int16_t joy2Y_Max = 1023;
+
+// ============================>> JoyStick DeadBand <<=============================
+const int16_t DEADBAND = 15;
+
+// ==============================>> Button States <<===============================
+bool modeState = HIGH;
+bool lastModeState = HIGH;
+bool functionState = HIGH;
+bool lastFunctionState = HIGH;
+
+// ============================>> Encoder Variables <<=============================
+int lastCLK = HIGH;
+int currentCLK = HIGH;
+
+// ==============================>> Menu Variables <<==============================
+uint8_t menuIndex = 0;
+uint8_t homePage = 0;
+
+bool encoderCW = false;
+bool encoderCCW = false;
+bool encoderPressed = false;
+
+// ============================>> TFT DisplayScreen <<=============================
+enum Screen
+{
+    BOOT_SCREEN,
+    HOME_SCREEN,
+    MENU_SCREEN,
+
+    VEHICLE_SCREEN,
+    CALIBRATION_SCREEN,
+    TRIM_SCREEN,
+    RADIO_SCREEN,
+    DISPLAY_SCREEN,
+    SYSTEM_SCREEN,
+    ABOUT_SCREEN
+};
+Screen currentScreen = BOOT_SCREEN;
+
+const uint8_t TOTAL_HOME_PAGES = 4;
+const uint8_t TOTAL_MENU_ITEMS = 7;
 // ======================>> RF Address Communication <<===========================
-// ===============================================================================
-const byte droneAdd[8] = "DRN3458";
-const byte carAdd[8] = "CAR2348";
-const byte planeAdd[8] = "PLN3405";
+const byte DRONE_ADD[8] = "DRN3458";
+const byte CAR_ADD[8] = "CAR2348";
+const byte PLANE_ADD[8] = "PLN3405";
 
 // ===============================================================================
 // =======================>> Setup Function to init <<============================
 // ===============================================================================
 void setup()
 {
-    Serial.begin(9600);
+    Serial.begin(115200);
     SPI.begin();
     radio.begin();
     tft.init(240, 240);
+
+    // =======================>> Input Pins  <<=========================
+    pinMode(MODE_BTN, INPUT_PULLUP);
+    pinMode(FUNCTION_BTN, INPUT_PULLUP);
+    pinMode(ENC_CLK, INPUT_PULLUP);
+    pinMode(ENC_DT, INPUT_PULLUP);
+    pinMode(ENC_SW, INPUT_PULLUP);
+
+    // =======================>> Output Pins <<=========================
+    // pinMode(BUZZER,OUTPUT);
+    // pinMode(LED_BUILTIN_OUTPUT);
+
+    // ==========================>> NRF24 Initialization <<===========================
+    if (!radio.begin())
+    {
+        Serial.println("NRF24 Initialization Failed ...!");
+        while (1)
+            ;
+    }
+    radio.setPALevel(RF24_PA_LOW);   // Set Transmission Power to Low
+    radio.setDataRate(RF24_250KBPS); // Set DataRate to 250kbps
+    radio.setChannel(108);           // Set channel to 108
+    radio.setAutoAck(true);          // To Send Acknowledgement to Reciever while reciever packet is accepted
+    radio.setRetries(5, 15);         // If Ack not recieved then it send packet again on delay of (5) and retries of (15)
+    // This is open writing pipe mode
+    radio.openWritingPipe(DRONE_ADD); // The transmitter starts in default drone mode
+    // radio.openWritingPipe(CAR_ADD);
+    // radio.openWritingPipe(PLANE_ADD);
+    radio.stopListening(); // It set Transmit mode except receiver mode
+
+    // =======================>> TFT Display Initialization <<========================
+    tft.setRotation(1);
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(25, 20);
+    tft.println("Universal");
+    tft.setCursor(35, 45);
+    tft.println("RC");
+    tft.setCursor(10, 80);
+    tft.println("Transmitter");
+
+    bootStartTime = millis();
+    currentScreen = BOOT_SCREEN;
 }
 
 // ===============================================================================
+// ===========================>> Function Prototypes <<===========================
+// ===============================================================================
+void readJoyStick();
+void readButtons();
+void readEncoder();
+void updateBattery();
+void processMenu();
+void processMainMenu();
+void processHome();
+void processVehicleMenu();
+void processCalibration();
+void processTrim();
+void processRadio();
+void processDisplay();
+void processSystem();
+void processAbout();
+void sendPacket();
+void updateDisplay();
+void updateFailSafe();
+void changeMode();
+void saveSettings();
+void loadSettings();
+int16_t calibrationJoyStick(
+    int16_t value,
+    int16_t min,
+    int16_t center,
+    int16_t max);
+
+int16_t applyDeadband(int16_t value);
+// ===============================================================================
 // =======================>> Loop Function to continue <<=========================
 // ===============================================================================
-void loop() {}
+void loop()
+{
+    readJoyStick();
+    readButtons();
+    readEncoder();
+    //     updateBattery();
+    processMenu();
+    //     updateFailSafe();
+    //     sendPacket();
+    //     updateDisplay();
+}
+
+// ===============================================================================
+// ===========================>> Function Definitions <<==========================
+// ===============================================================================
+int16_t applyDeadband(int16_t value)
+{
+    if (value > -DEADBAND && value < DEADBAND)
+    {
+        return 0;
+    }
+    return value;
+}
+
+int16_t calibrationJoyStick(
+    int16_t value,
+    int16_t min,
+    int16_t center,
+    int16_t max
+
+)
+{
+    if (value < center)
+    {
+        return map(value, min, center, -500, 0);
+    }
+    else
+    {
+        return map(value, center, max, 0, 500);
+    }
+}
+
+void readJoyStick()
+{
+    rawLeftX = analogRead(JOY1_X);
+    rawLeftY = analogRead(JOY1_Y);
+    rawRightX = analogRead(JOY2_X);
+    rawRightY = analogRead(JOY2_Y);
+    // Calibration
+    int16_t leftX = calibrationJoyStick(
+        rawLeftX,
+        joy1X_Min,
+        joy1X_Center,
+        joy1X_Max);
+    int16_t leftY = calibrationJoyStick(
+        rawLeftY,
+        joy1Y_Min,
+        joy1Y_Center,
+        joy1Y_Max);
+    int16_t rightX = calibrationJoyStick(
+        rawRightX,
+        joy2X_Min,
+        joy2X_Center,
+        joy2X_Max);
+    int16_t rightY = calibrationJoyStick(
+        rawRightY,
+        joy2Y_Min,
+        joy2Y_Center,
+        joy2Y_Max);
+
+    leftX = applyDeadband(leftX);
+    leftY = applyDeadband(leftY);
+    rightX = applyDeadband(rightX);
+    rightY = applyDeadband(rightY);
+
+    tx.throttle = map(rawLeftY,
+                      joy1Y_Min,
+                      joy1Y_Max,
+                      1000,
+                      2000);
+
+    tx.yaw = map(leftX,
+                 -500,
+                 500,
+                 1000,
+                 2000);
+
+    tx.roll = map(rightX,
+                  -500,
+                  500,
+                  1000,
+                  2000);
+    tx.pitch = map(rightY,
+                   -500,
+                   500,
+                   1000,
+                   2000);
+
+    tx.throttle = constrain(tx.throttle, 1000, 2000);
+    tx.roll = constrain(tx.roll, 1000, 2000);
+    tx.pitch = constrain(tx.pitch, 1000, 2000);
+    tx.yaw = constrain(tx.yaw, 1000, 2000);
+}
+
+void changeMode()
+{
+    tx.mode++;
+    if (tx.mode > 2)
+    {
+        tx.mode = 0;
+    }
+    switch (tx.mode)
+    {
+    case 0:
+        radio.openWritingPipe(DRONE_ADD);
+        break;
+    case 1:
+        radio.openWritingPipe(CAR_ADD);
+        break;
+    case 2:
+        radio.openWritingPipe(PLANE_ADD);
+        break;
+    }
+}
+
+void readButtons()
+{
+    modeState = digitalRead(MODE_BTN);
+    functionState = digitalRead(FUNCTION_BTN);
+
+    if (lastModeState == HIGH && modeState == LOW)
+    {
+        changeMode();
+    }
+    lastModeState = modeState;
+    if (lastFunctionState == HIGH && functionState == LOW)
+    {
+        // Function Button pressed
+    }
+    lastFunctionState = functionState;
+}
+
+void readEncoder()
+{
+    currentCLK = digitalRead(ENC_CLK);
+    if (currentCLK != lastCLK)
+    {
+        if (digitalRead(ENC_DT) != currentCLK)
+        {
+            // clockwise
+        }
+        else
+        {
+            // anti clockwise
+        }
+    }
+    lastCLK = currentCLK;
+    if (digitalRead(ENC_SW) == LOW)
+    {
+        // select Menu
+    }
+}
+
+void processMenu()
+{
+    switch (currentScreen)
+    {
+    case BOOT_SCREEN:
+        break;
+    case HOME_SCREEN:
+        processHome();
+        break;
+    case MENU_SCREEN:
+        processMainMenu();
+        break;
+    case VEHICLE_SCREEN:
+        processVehicleMenu();
+        break;
+    case CALIBRATION_SCREEN:
+        processCalibration();
+        break;
+    case TRIM_SCREEN:
+        processTrim();
+        break;
+    case RADIO_SCREEN:
+        processRadio();
+        break;
+    case DISPLAY_SCREEN:
+        processDisplay();
+        break;
+    case SYSTEM_SCREEN:
+        processSystem();
+        break;
+    case ABOUT_SCREEN:
+        processAbout();
+        break;
+    }
+}
+
+void processHome()
+{
+    if (encoderCW)
+    {
+        homePage++;
+        if (homePage >= TOTAL_HOME_PAGES)
+        {
+            homePage = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (homePage == 0)
+        {
+            homePage = TOTAL_HOME_PAGES - 1;
+        }
+        else
+        {
+            homePage--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        currentScreen = MENU_SCREEN;
+        encoderPressed = false;
+    }
+}
+
+void processMainMenu()
+{
+    if (encoderCW)
+    {
+        menuIndex++;
+        if (menuIndex >= TOTAL_MENU_ITEMS)
+        {
+            menuIndex = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (menuIndex == 0)
+        {
+            menuIndex = TOTAL_MENU_ITEMS - 1;
+        }
+        else
+        {
+            menuIndex--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        switch (menuIndex)
+        {
+        case 0:
+            currentScreen = VEHICLE_SCREEN;
+            break;
+        case 1:
+            currentScreen = CALIBRATION_SCREEN;
+            break;
+        case 2:
+            currentScreen = TRIM_SCREEN;
+            break;
+        case 3:
+            currentScreen = RADIO_SCREEN;
+            break;
+        case 4:
+            currentScreen = DISPLAY_SCREEN;
+            break;
+        case 5:
+            currentScreen = SYSTEM_SCREEN;
+            break;
+        case 6:
+            currentScreen = ABOUT_SCREEN;
+            break;
+        }
+        encoderPressed = false;
+    }
+}

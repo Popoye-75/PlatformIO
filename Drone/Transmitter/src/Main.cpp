@@ -76,8 +76,17 @@ int16_t pitch = 0;
 int16_t yaw = 0;
 
 uint8_t currMode = 0;
-int rollTrim = 0;
-int pitchTim = 0;
+uint8_t calibrationAxis = 0;
+const uint8_t TOTAL_AXIS = 4;
+
+uint8_t trimsIndex = 0;
+const uint8_t TOTAL_TRIMS = 4;
+
+int8_t rollTrim = 0;
+int8_t pitchTrim = 0;
+int8_t yawTrim = 0;
+int8_t throttleTrim = 0;
+
 float batteryVoltage = 0.0;
 bool functionPressed = false;
 unsigned long bootStartTime = 0;
@@ -86,6 +95,10 @@ int16_t rawLeftX;
 int16_t rawLeftY;
 int16_t rawRightX;
 int16_t rawRightY;
+
+// ========================>> NRF24 global Variables <<==========================
+uint8_t radioIndex = 0;
+const uint8_t TOTAL_RADIO_ITEMS = 3;
 
 // =========================>> JoyStick Calibration <<============================
 int16_t joy1X_Min = 0;
@@ -126,6 +139,9 @@ bool encoderCCW = false;
 bool encoderPressed = false;
 
 // ============================>> TFT DisplayScreen <<=============================
+uint8_t displayIndex = 0;
+const uint8_t TOTAL_DISPLAY_ITEMS = 1;
+
 enum Screen
 {
     BOOT_SCREEN,
@@ -142,6 +158,13 @@ enum Screen
 };
 Screen currentScreen = BOOT_SCREEN;
 
+enum Vehicle
+{
+    DRONE,
+    CAR,
+    PLANE
+};
+
 const uint8_t TOTAL_HOME_PAGES = 4;
 const uint8_t TOTAL_MENU_ITEMS = 7;
 // ======================>> RF Address Communication <<===========================
@@ -156,8 +179,6 @@ void setup()
 {
     Serial.begin(115200);
     SPI.begin();
-    radio.begin();
-    tft.init(240, 240);
 
     // =======================>> Input Pins  <<=========================
     pinMode(MODE_BTN, INPUT_PULLUP);
@@ -171,6 +192,7 @@ void setup()
     // pinMode(LED_BUILTIN_OUTPUT);
 
     // ==========================>> NRF24 Initialization <<===========================
+    radio.begin();
     if (!radio.begin())
     {
         Serial.println("NRF24 Initialization Failed ...!");
@@ -182,13 +204,12 @@ void setup()
     radio.setChannel(108);           // Set channel to 108
     radio.setAutoAck(true);          // To Send Acknowledgement to Reciever while reciever packet is accepted
     radio.setRetries(5, 15);         // If Ack not recieved then it send packet again on delay of (5) and retries of (15)
-    // This is open writing pipe mode
-    radio.openWritingPipe(DRONE_ADD); // The transmitter starts in default drone mode
-    // radio.openWritingPipe(CAR_ADD);
-    // radio.openWritingPipe(PLANE_ADD);
-    radio.stopListening(); // It set Transmit mode except receiver mode
+    radio.stopListening();           // It set Transmit mode except receiver mode
+
+    // =======================>> EEPROM LOAD Initialization <<========================
 
     // =======================>> TFT Display Initialization <<========================
+    tft.init(240, 240);
     tft.setRotation(1);
     tft.fillScreen(ST77XX_BLACK);
     tft.setTextColor(ST77XX_WHITE);
@@ -200,6 +221,13 @@ void setup()
     tft.setCursor(10, 80);
     tft.println("Transmitter");
 
+    // Default Vehicle
+    tx.mode = DRONE;
+    radio.openWritingPipe(DRONE_ADD); // The transmitter starts in default drone mode
+    // radio.openWritingPipe(CAR_ADD);
+    // radio.openWritingPipe(PLANE_ADD);
+
+    // Boot timer
     bootStartTime = millis();
     currentScreen = BOOT_SCREEN;
 }
@@ -226,7 +254,7 @@ void updateDisplay();
 void updateFailSafe();
 void changeMode();
 void saveSettings();
-void loadSettings();
+// void loadSettings();
 int16_t calibrationJoyStick(
     int16_t value,
     int16_t min,
@@ -265,9 +293,7 @@ int16_t calibrationJoyStick(
     int16_t value,
     int16_t min,
     int16_t center,
-    int16_t max
-
-)
+    int16_t max)
 {
     if (value < center)
     {
@@ -515,6 +541,159 @@ void processMainMenu()
             currentScreen = ABOUT_SCREEN;
             break;
         }
+        encoderPressed = false;
+    }
+}
+void processVehicleMenu()
+{
+    if (encoderCW)
+    {
+        if (tx.mode < 2)
+        {
+            tx.mode++;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (tx.mode > 0)
+        {
+            tx.mode--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        switch (tx.mode)
+        {
+        case DRONE:
+            radio.openWritingPipe(DRONE_ADD);
+            break;
+        case CAR:
+            radio.openWritingPipe(CAR_ADD);
+            break;
+        case PLANE:
+            radio.openWritingPipe(PLANE_ADD);
+            break;
+        }
+        currentScreen = HOME_SCREEN;
+        encoderPressed = false;
+    }
+}
+void processCalibration()
+{
+    if (encoderCW)
+    {
+        calibrationAxis++;
+        if (calibrationAxis >= TOTAL_AXIS)
+        {
+            calibrationAxis = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (calibrationAxis == 0)
+        {
+            calibrationAxis = TOTAL_AXIS - 1;
+        }
+        else
+        {
+            calibrationAxis--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        saveSettings();
+        currentScreen = MENU_SCREEN;
+        encoderPressed = false;
+    }
+}
+void processTrim()
+{
+    if (encoderCW)
+    {
+        trimsIndex++;
+        if (trimsIndex >= TOTAL_TRIMS)
+        {
+            trimsIndex = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (trimsIndex == 0)
+        {
+            trimsIndex = TOTAL_TRIMS - 1;
+        }
+        else
+        {
+            trimsIndex--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        currentScreen = MENU_SCREEN;
+        encoderPressed = false;
+    }
+}
+void processRadio()
+{
+    if (encoderCW)
+    {
+        radioIndex++;
+        if (radioIndex >= TOTAL_RADIO_ITEMS)
+        {
+            radioIndex = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (radioIndex == 0)
+        {
+            radioIndex = TOTAL_RADIO_ITEMS - 1;
+        }
+        else
+        {
+            radioIndex--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        currentScreen = MENU_SCREEN;
+        encoderPressed = false;
+    }
+}
+void processDisplay()
+{
+    if (encoderCW)
+    {
+        displayIndex++;
+        if (displayIndex >= TOTAL_DISPLAY_ITEMS)
+        {
+            displayIndex = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (displayIndex == 0)
+        {
+            displayIndex = TOTAL_DISPLAY_ITEMS - 1;
+        }
+        else
+        {
+            displayIndex--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        currentScreen = MENU_SCREEN;
         encoderPressed = false;
     }
 }

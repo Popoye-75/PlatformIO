@@ -157,7 +157,7 @@ enum Screen
     ABOUT_SCREEN
 };
 Screen currentScreen = BOOT_SCREEN;
-
+Screen previousScreen = BOOT_SCREEN;
 enum Vehicle
 {
     DRONE,
@@ -167,6 +167,23 @@ enum Vehicle
 
 const uint8_t TOTAL_HOME_PAGES = 4;
 const uint8_t TOTAL_MENU_ITEMS = 7;
+
+// ======================>> Process System Variable  <<===========================
+uint8_t systemIndex = 0;
+const uint8_t TOTAL_SYSTEM_ITEMS = 3;
+
+const char *mainMenu[] = {
+    "Vehicle",
+    "Calibration",
+    "Trim",
+    "Radio",
+    "Display",
+    "System",
+    "About"};
+const char *vehicleMenu[] = {
+    "Drone",
+    "Car",
+    "Plane"};
 // ======================>> RF Address Communication <<===========================
 const byte DRONE_ADD[8] = "DRN3458";
 const byte CAR_ADD[8] = "CAR2348";
@@ -251,10 +268,20 @@ void processSystem();
 void processAbout();
 void sendPacket();
 void updateDisplay();
+void drawBootScreen();
+void drawHomeScreen();
+void drawMainMenu();
+void drawVehicleScreen();
+void drawCalibrationScreen();
+void drawTrimScreen();
+void drawRadioScreen();
+void drawDisplayScreen();
+void drawSystemScreen();
+void drawAboutScreen();
 void updateFailSafe();
 void changeMode();
 void saveSettings();
-// void loadSettings();
+void loadSettings();
 int16_t calibrationJoyStick(
     int16_t value,
     int16_t min,
@@ -544,6 +571,7 @@ void processMainMenu()
         encoderPressed = false;
     }
 }
+
 void processVehicleMenu()
 {
     if (encoderCW)
@@ -580,6 +608,7 @@ void processVehicleMenu()
         encoderPressed = false;
     }
 }
+
 void processCalibration()
 {
     if (encoderCW)
@@ -610,6 +639,7 @@ void processCalibration()
         encoderPressed = false;
     }
 }
+
 void processTrim()
 {
     if (encoderCW)
@@ -639,6 +669,7 @@ void processTrim()
         encoderPressed = false;
     }
 }
+
 void processRadio()
 {
     if (encoderCW)
@@ -668,6 +699,7 @@ void processRadio()
         encoderPressed = false;
     }
 }
+
 void processDisplay()
 {
     if (encoderCW)
@@ -696,4 +728,187 @@ void processDisplay()
         currentScreen = MENU_SCREEN;
         encoderPressed = false;
     }
+}
+
+void processSystem()
+{
+    if (encoderCW)
+    {
+        systemIndex++;
+        if (systemIndex >= TOTAL_SYSTEM_ITEMS)
+        {
+            systemIndex = 0;
+        }
+        encoderCW = false;
+    }
+    if (encoderCCW)
+    {
+        if (systemIndex == 0)
+        {
+            systemIndex = TOTAL_SYSTEM_ITEMS - 1;
+        }
+        else
+        {
+            systemIndex--;
+        }
+        encoderCCW = false;
+    }
+    if (encoderPressed)
+    {
+        switch (systemIndex)
+        {
+        case 0:
+            // Reset Settings
+            break;
+        case 1:
+            // Factory Reset
+            break;
+        case 2:
+            // Battery Information
+            break;
+        }
+        encoderPressed = false;
+    }
+}
+
+void processAbout()
+{
+    if (encoderPressed)
+    {
+        currentScreen = MENU_SCREEN;
+        encoderPressed = false;
+    }
+}
+
+void updateDisplay()
+{
+    if (currentScreen != previousScreen)
+    {
+        tft.fillScreen(ST77XX_BLACK);
+        previousScreen = currentScreen;
+    }
+    switch (currentScreen)
+    {
+    case BOOT_SCREEN:
+        drawBootScreen();
+        break;
+
+    case HOME_SCREEN:
+        drawHomeScreen();
+        break;
+
+    case MENU_SCREEN:
+        drawMainMenu();
+        break;
+
+    case VEHICLE_SCREEN:
+        drawVehicleScreen();
+        break;
+
+    case CALIBRATION_SCREEN:
+        drawCalibrationScreen();
+        break;
+
+    case TRIM_SCREEN:
+        drawTrimScreen();
+        break;
+
+    case RADIO_SCREEN:
+        drawRadioScreen();
+        break;
+
+    case DISPLAY_SCREEN:
+        drawDisplayScreen();
+        break;
+
+    case SYSTEM_SCREEN:
+        drawSystemScreen();
+        break;
+
+    case ABOUT_SCREEN:
+        drawAboutScreen();
+        break;
+    }
+}
+
+void drawBootScreen()
+{
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(20, 40);
+    tft.println("Universal RC");
+    tft.setCursor(35, 70);
+    tft.println("Loading....");
+}
+
+void drawHomeScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+
+    tft.setCursor(5, 5);
+    switch (tx.mode)
+    {
+    case DRONE:
+        tft.print("DRONE");
+        break;
+    case CAR:
+        tft.print("CAR");
+        break;
+    case PLANE:
+        tft.print("PLANE");
+        break;
+    }
+    tft.setCursor(5, 35);
+    tft.print("THR : ");
+    tft.println(tx.throttle);
+
+    tft.setCursor(5, 60);
+    tft.print("ROL : ");
+    tft.println(tx.roll);
+
+    tft.setCursor(5, 85);
+    tft.print("PIT : ");
+    tft.println(tx.pitch);
+
+    tft.setCursor(5, 110);
+    tft.print("YAW : ");
+    tft.println(tx.yaw);
+}
+
+void drawMainMenu()
+{
+    // Heading
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+
+    tft.setCursor(25, 5);
+    tft.println("MAIN MENU");
+
+    // Menu Items
+    // tft.setTextSize(1);
+
+    for (uint8_t i = 0; i < TOTAL_MENU_ITEMS; i++)
+    {
+        // int y = 40 + (i*20);
+
+        if (i == menuIndex)
+        {
+            // tft.fillRect(0,y-2,240,16,ST77XX_BLUE);
+            // tft.setTextColor(ST77XX_WHITE);
+            // tft.print("> ");
+        }
+        else
+        {
+            // tft.setTextColor(ST77XX_WHITE);
+            tft.print(" ");
+        }
+        // tft.setCursor(10,y);
+        tft.println(mainMenu[i]);
+    }
+}
+
+void drawVehicleScreen()
+{
 }

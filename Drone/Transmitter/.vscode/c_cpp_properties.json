@@ -10,6 +10,7 @@
             "includePath": [
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/include",
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/src",
+                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Encoder",
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Encoder/utility",
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Bounce2/src",
@@ -24,7 +25,6 @@
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/cores/arduino",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Adafruit seesaw Library",
-                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                 ""
@@ -34,6 +34,7 @@
                 "path": [
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/include",
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/src",
+                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Encoder",
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Encoder/utility",
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Bounce2/src",
@@ -48,7 +49,6 @@
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/cores/arduino",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Transmitter/.pio/libdeps/nanoatmega328/Adafruit seesaw Library",
-                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                     ""

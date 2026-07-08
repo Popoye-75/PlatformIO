@@ -1,14 +1,13 @@
 #include <Arduino.h>
-#include <SPI.h>
 #include <RF24.h>
 #include <Wire.h>
 #include <stdint.h>
-// #include <EEPROM.h>
-#include <Encoder.h>
-#include <Bounce2.h>
+#include <EEPROM.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
-// #include "Transmitter.h"
+// #include <SPI.h>
+// #include <Encoder.h>
+// #include <Bounce2.h>
 // #include <avr/wdt.h>
 
 // ===============================================================================
@@ -26,10 +25,10 @@
 
 /* Pin definition for RF24 communication */
 #define CE_PIN 7
-#define CSN_PIN 8
+#define CSN_PIN 8 // change to 8
 
 /* Pin definition for TFT Display*/
-#define TFT_RST 6
+#define TFT_RST 6 // change to 6
 #define TFT_DC 9
 #define TFT_CS 10
 // Hardware SPI
@@ -47,6 +46,18 @@
 /* Pin defintion for Battery */
 #define BATTERY_PIN A4
 
+/* Important function declaration*/
+void saveSettings();
+void loadSettings();
+void failSafe();
+bool initNRF24();
+void initDisplay();
+void processBootScreen();
+void updateRadioSettings();
+void applyDisplaySettings();
+void resetSettings();
+void factoryReset();
+// void startupBeep();
 // ===============================================================================
 // ===========================>> Objects Section <================================
 // ===============================================================================
@@ -70,16 +81,16 @@ typedef struct
 // ===========================>> Global Variable <<===============================
 // ===============================================================================
 txData tx;
-uint16_t throttle = 0;
-int16_t roll = 0;
-int16_t pitch = 0;
-int16_t yaw = 0;
+// uint16_t throttle = 0;
+// int16_t roll = 0;
+// int16_t pitch = 0;
+// int16_t yaw = 0;
 
 uint8_t currMode = 0;
 uint8_t calibrationAxis = 0;
 const uint8_t TOTAL_AXIS = 4;
 
-uint8_t trimsIndex = 0;
+uint8_t trimIndex = 0;
 const uint8_t TOTAL_TRIMS = 4;
 
 int8_t rollTrim = 0;
@@ -88,6 +99,9 @@ int8_t yawTrim = 0;
 int8_t throttleTrim = 0;
 
 float batteryVoltage = 0.0;
+uint8_t batteryPercent = 0;
+uint16_t batteryADC = 0;
+
 bool functionPressed = false;
 unsigned long bootStartTime = 0;
 
@@ -98,6 +112,7 @@ int16_t rawRightY;
 
 // ========================>> NRF24 global Variables <<==========================
 uint8_t radioIndex = 0;
+unsigned long lastPacketTime = 0;
 const uint8_t TOTAL_RADIO_ITEMS = 3;
 
 // =========================>> JoyStick Calibration <<============================
@@ -140,8 +155,11 @@ bool encoderPressed = false;
 
 // ============================>> TFT DisplayScreen <<=============================
 uint8_t displayIndex = 0;
-const uint8_t TOTAL_DISPLAY_ITEMS = 1;
+uint8_t brightness = 100;
+uint8_t rotation = 1;
+uint8_t theme = 0;
 
+const uint8_t TOTAL_DISPLAY_ITEMS = 1;
 enum Screen
 {
     BOOT_SCREEN,
@@ -184,6 +202,44 @@ const char *vehicleMenu[] = {
     "Drone",
     "Car",
     "Plane"};
+
+const char *calibrationMenu[] = {
+    "Left X",
+    "Left Y",
+    "Right X",
+    "Right Y"};
+
+const char *trimMenu[] = {
+    "Roll",
+    "Pitch",
+    "Yaw",
+    "Throttle"};
+const char *radioMenu[] = {
+    "Channel",
+    "Power",
+    "Data Rate"};
+
+const char *displayMenu[] = {
+    "Brightness",
+    "Rotation",
+    "Theme"};
+
+const char *systemMenu[] = {
+    "Reset Settings",
+    "Factory Reset",
+    "Battery Info"};
+
+uint8_t radioChannel = 100;
+// 0 = MIN
+// 1 = LOW
+// 2 = HIGH
+// 3 = MAX
+uint8_t radioPower = 3;
+// 0 = 250KBPS
+// 1 = 1MBPS
+// 2 = 2MBPS
+uint8_t radioDataRate = 1;
+
 // ======================>> RF Address Communication <<===========================
 const byte DRONE_ADD[8] = "DRN3458";
 const byte CAR_ADD[8] = "CAR2348";
@@ -209,26 +265,38 @@ void setup()
     // pinMode(LED_BUILTIN_OUTPUT);
 
     // ==========================>> NRF24 Initialization <<===========================
-    radio.begin();
-    if (!radio.begin())
+    // radio.begin();
+    // if (!radio.begin())
+    // {
+    //     Serial.println("NRF24 Initialization Failed ...!");
+    //     while (1)
+    //         ;
+    // }
+    // radio.setPALevel(RF24_PA_LOW);   // Set Transmission Power to Low
+    // radio.setDataRate(RF24_250KBPS); // Set DataRate to 250kbps
+    // radio.setChannel(108);           // Set channel to 108
+    if (!initNRF24())
     {
-        Serial.println("NRF24 Initialization Failed ...!");
-        while (1)
-            ;
+        for (int i = 0; i < 10; i++)
+        {
+            Serial.println("NRF24 Initialization Failed ...!");
+        }
     }
-    radio.setPALevel(RF24_PA_LOW);   // Set Transmission Power to Low
-    radio.setDataRate(RF24_250KBPS); // Set DataRate to 250kbps
-    radio.setChannel(108);           // Set channel to 108
-    radio.setAutoAck(true);          // To Send Acknowledgement to Reciever while reciever packet is accepted
-    radio.setRetries(5, 15);         // If Ack not recieved then it send packet again on delay of (5) and retries of (15)
-    radio.stopListening();           // It set Transmit mode except receiver mode
+    else
+    {
+        Serial.println("NRF24 Initialized .....");
+    }
+    radio.setAutoAck(true);  // To Send Acknowledgement to Reciever while reciever packet is accepted
+    radio.setRetries(5, 15); // If Ack not recieved then it send packet again on delay of (5) and retries of (15)
+    // radio.stopListening();           // It set Transmit mode except receiver mode
 
     // =======================>> EEPROM LOAD Initialization <<========================
-
+    loadSettings();
     // =======================>> TFT Display Initialization <<========================
-    tft.init(240, 240);
-    tft.setRotation(1);
-    tft.fillScreen(ST77XX_BLACK);
+    // tft.init(240, 240);
+    // tft.setRotation(1);
+    // tft.fillScreen(ST77XX_BLACK);
+    initDisplay();
     tft.setTextColor(ST77XX_WHITE);
     tft.setTextSize(2);
     tft.setCursor(25, 20);
@@ -278,10 +346,8 @@ void drawRadioScreen();
 void drawDisplayScreen();
 void drawSystemScreen();
 void drawAboutScreen();
-void updateFailSafe();
 void changeMode();
-void saveSettings();
-void loadSettings();
+
 int16_t calibrationJoyStick(
     int16_t value,
     int16_t min,
@@ -297,11 +363,15 @@ void loop()
     readJoyStick();
     readButtons();
     readEncoder();
-    //     updateBattery();
     processMenu();
-    //     updateFailSafe();
-    //     sendPacket();
-    //     updateDisplay();
+    updateDisplay();
+    if (millis() - lastPacketTime >= 10)
+    {
+        sendPacket();
+        lastPacketTime = millis();
+    }
+    updateBattery();
+    failSafe();
 }
 
 // ===============================================================================
@@ -458,6 +528,7 @@ void processMenu()
     switch (currentScreen)
     {
     case BOOT_SCREEN:
+        processBootScreen();
         break;
     case HOME_SCREEN:
         processHome();
@@ -644,22 +715,22 @@ void processTrim()
 {
     if (encoderCW)
     {
-        trimsIndex++;
-        if (trimsIndex >= TOTAL_TRIMS)
+        trimIndex++;
+        if (trimIndex >= TOTAL_TRIMS)
         {
-            trimsIndex = 0;
+            trimIndex = 0;
         }
         encoderCW = false;
     }
     if (encoderCCW)
     {
-        if (trimsIndex == 0)
+        if (trimIndex == 0)
         {
-            trimsIndex = TOTAL_TRIMS - 1;
+            trimIndex = TOTAL_TRIMS - 1;
         }
         else
         {
-            trimsIndex--;
+            trimIndex--;
         }
         encoderCCW = false;
     }
@@ -911,4 +982,390 @@ void drawMainMenu()
 
 void drawVehicleScreen()
 {
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(20, 5);
+    tft.println("VEHICLE");
+    tft.setTextSize(2);
+    for (uint8_t i = 0; i < 3; i++)
+    {
+        tft.setCursor(20, 45 + (i * 30));
+        if (i == tx.mode)
+        {
+            tft.print("> ");
+        }
+        else
+        {
+            tft.print(" ");
+        }
+        tft.println(vehicleMenu[i]);
+    }
 }
+
+void drawCalibrationScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(10, 5);
+    tft.println("CALIBRATION");
+    tft.setTextSize(1);
+    for (uint8_t i = 0; i < TOTAL_AXIS; i++)
+    {
+        tft.setCursor(10, 35 + (i * 15));
+        if (i == calibrationAxis)
+        {
+            tft.print("> ");
+        }
+        else
+        {
+            tft.print(" ");
+        }
+        tft.println(calibrationMenu[i]);
+    }
+
+    tft.setCursor(120, 35);
+    tft.print(rawLeftX);
+
+    tft.setCursor(120, 50);
+    tft.print(rawLeftY);
+
+    tft.setCursor(120, 65);
+    tft.print(rawRightX);
+
+    tft.setCursor(120, 80);
+    tft.print(rawRightY);
+}
+
+void drawTrimScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(35, 5);
+    tft.println("TRIMS");
+    tft.setTextSize(1);
+
+    for (uint8_t i = 0; i < TOTAL_TRIMS; i++)
+    {
+        tft.setCursor(10, 35 + (i * 20));
+        if (i == trimIndex)
+        {
+            tft.print("> ");
+        }
+        else
+        {
+            tft.print(" ");
+        }
+        tft.print(trimMenu[i]);
+        tft.print(" : ");
+        switch (i)
+        {
+        case 0:
+            tft.println(rollTrim);
+            break;
+        case 1:
+            tft.println(pitchTrim);
+            break;
+        case 2:
+            tft.println(yawTrim);
+            break;
+        case 3:
+            tft.println(throttleTrim);
+            break;
+        }
+    }
+}
+
+void drawRadioScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+
+    tft.setCursor(35, 5);
+    tft.println("RADIO");
+
+    tft.setTextSize(1);
+
+    for (uint8_t i = 0; i < TOTAL_RADIO_ITEMS; i++)
+    {
+        tft.setCursor(10, 35 + (i * 20));
+        if (i == radioIndex)
+        {
+            tft.print("> ");
+        }
+        else
+        {
+            tft.print(" ");
+        }
+        tft.print(radioMenu[i]);
+        tft.print(" : ");
+        switch (i)
+        {
+        case 0:
+            tft.println(radioChannel);
+            break;
+        case 1:
+            tft.println(radioPower);
+            break;
+        case 2:
+            tft.println(radioDataRate);
+            break;
+        }
+    }
+}
+
+void drawDisplayScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+
+    tft.setCursor(25, 5);
+    tft.println("DISPLAY");
+
+    tft.setTextSize(1);
+
+    for (uint8_t i = 0; i < TOTAL_DISPLAY_ITEMS; i++)
+    {
+        tft.setCursor(10, 35 + (i * 20));
+        if (i == displayIndex)
+        {
+            tft.print("> ");
+        }
+        else
+        {
+            tft.print(" ");
+        }
+        tft.print(displayMenu[i]);
+        tft.print(" : ");
+        switch (i)
+        {
+        case 0:
+            tft.println(brightness);
+            break;
+        case 1:
+            tft.println(rotation);
+            break;
+        case 2:
+            if (theme == 0)
+            {
+                tft.println("Dark");
+            }
+            else
+            {
+                tft.println("Light");
+            }
+            break;
+        }
+    }
+}
+
+void drawSystemScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(30, 5);
+    tft.println("SYSTEM");
+    tft.setTextSize(1);
+    for (uint8_t i = 0; i < TOTAL_SYSTEM_ITEMS; i++)
+    {
+        tft.setCursor(10, 35 + (i * 20));
+        if (i == systemIndex)
+        {
+            tft.print("> ");
+        }
+        else
+        {
+            tft.print(" ");
+        }
+        tft.println(systemMenu[i]);
+    }
+}
+
+void drawAboutScreen()
+{
+    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextSize(2);
+
+    tft.setCursor(40, 5);
+    tft.println("ABOUT");
+
+    tft.setTextSize(1);
+
+    tft.setCursor(10, 40);
+    tft.println("Universal RC");
+
+    tft.setCursor(10, 60);
+    tft.println("Version : 1.0");
+
+    tft.setCursor(10, 80);
+    tft.println("Board : Arduino Nano");
+
+    tft.setCursor(10, 100);
+    tft.println("Radio : NRF24LO1");
+
+    tft.setCursor(10, 120);
+    tft.println("Display : ST7789");
+
+    tft.setCursor(10, 140);
+    tft.println("By : Popoye");
+}
+
+void sendPacket()
+{
+    radio.write(&tx, sizeof(tx));
+}
+
+void updateBattery()
+{
+    batteryADC = analogRead(BATTERY_PIN);
+    batteryVoltage = (batteryADC * 5.0) / 1023.0;
+    batteryPercent = map(batteryADC, 0, 1023, 0, 100);
+    if (batteryPercent > 100)
+    {
+        batteryPercent = 100;
+    }
+}
+
+void saveSettings()
+{
+    EEPROM.put(0, tx.mode);
+
+    EEPROM.put(10, rollTrim);
+    EEPROM.put(20, pitchTrim);
+    EEPROM.put(30, yawTrim);
+    EEPROM.put(40, throttleTrim);
+
+    EEPROM.put(50, radioChannel);
+    EEPROM.put(60, radioPower);
+    EEPROM.put(70, radioDataRate);
+
+    EEPROM.put(80, brightness);
+    EEPROM.put(90, rotation);
+    EEPROM.put(100, theme);
+}
+
+void loadSettings()
+{
+    EEPROM.get(0, tx.mode);
+    EEPROM.get(10, rollTrim);
+    EEPROM.get(20, pitchTrim);
+    EEPROM.get(30, yawTrim);
+    EEPROM.get(40, throttleTrim);
+
+    EEPROM.get(50, radioChannel);
+    EEPROM.get(60, radioPower);
+    EEPROM.get(70, radioDataRate);
+
+    EEPROM.get(80, brightness);
+    EEPROM.get(90, rotation);
+    EEPROM.get(100, theme);
+}
+
+void failSafe()
+{
+    tx.throttle = 0;
+    tx.roll = 0;
+    tx.pitch = 0;
+    tx.yaw = 0;
+    tx.flags = 0;
+}
+
+bool initNRF24()
+{
+    if (!radio.begin())
+    {
+        return false;
+    }
+
+    radio.setPALevel(RF24_PA_HIGH);
+    radio.setDataRate(RF24_1MBPS);
+    radio.setChannel(radioChannel);
+    radio.openWritingPipe(DRONE_ADD);
+    radio.stopListening();
+    return true;
+}
+
+void initDisplay()
+{
+    tft.init(240, 240);
+    tft.setRotation(rotation);
+    tft.fillScreen(ST77XX_BLACK);
+}
+
+void processBootScreen()
+{
+    if (millis() - bootStartTime >= 3000)
+    {
+        currentScreen = HOME_SCREEN;
+    }
+}
+
+void updateRadioSettings()
+{
+    radio.setChannel(radioChannel);
+    switch (radioPower)
+    {
+    case 0:
+        radio.setPALevel(RF24_PA_MIN);
+        break;
+    case 1:
+        radio.setPALevel(RF24_PA_LOW);
+        break;
+    case 2:
+        radio.setPALevel(RF24_PA_HIGH);
+    case 3:
+        radio.setPALevel(RF24_PA_MAX);
+        break;
+    }
+
+    switch (radioDataRate)
+    {
+    case 0:
+        radio.setDataRate(RF24_250KBPS);
+        break;
+    case 1:
+        radio.setDataRate(RF24_1MBPS);
+        break;
+    case 2:
+        radio.setDataRate(RF24_2MBPS);
+        break;
+    }
+}
+
+void applyDisplaySettings()
+{
+    tft.setRotation(rotation);
+}
+
+void resetSettings()
+{
+    tx.mode = DRONE;
+    rollTrim = 0;
+    pitchTrim = 0;
+    yawTrim = 0;
+    throttleTrim = 0;
+
+    radioChannel = 100;
+    radioPower = 3;
+    radioDataRate = 1;
+
+    brightness = 100;
+    rotation = 0;
+    theme = 0;
+    saveSettings();
+}
+
+void factoryReset()
+{
+    // for(int i = 0; i<EEPROM.length(); i++){
+    //     EEPROM.write(i,0);
+    // }
+    resetSettings();
+    saveSettings();
+}
+
+// void startupBeep()
+// {
+//     tone(BUZZER_PIN, 2000);
+//     delay(100);
+//     noTone(BUZZER_PIN);
+// }

@@ -10,13 +10,17 @@
             "includePath": [
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/include",
                 "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/src",
+                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/I2Cdevlib-MPU6050",
+                "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/I2Cdevlib-Core",
+                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/RF24",
+                "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/RF24/utility",
+                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/cores/arduino",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
-                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/HID/src",
-                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                 "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
-                "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                 ""
             ],
             "browse": {
@@ -24,13 +28,17 @@
                 "path": [
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/include",
                     "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/src",
+                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/I2Cdevlib-MPU6050",
+                    "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/I2Cdevlib-Core",
+                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/RF24",
+                    "/home/popoye-80/User/git-repo/Platformio/Drone/Flight_Controller/.pio/libdeps/pro16MHzatmega328/RF24/utility",
+                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/cores/arduino",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
-                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/HID/src",
-                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                     "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
-                    "/home/popoye-80/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                     ""
                 ]
             },

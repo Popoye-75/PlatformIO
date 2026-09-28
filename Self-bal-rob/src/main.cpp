@@ -165,70 +165,117 @@
 //     analogWrite(11, 0);
 //     Serial.print("S");
 // }
+#include <Arduino.h>
 
+int enA = 9;
+int in1 = 8;
+int in2 = 7;
 
+int enB = 3;
+int in3 = 5;
+int in4 = 4;
 
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
-#include <Wire.h>
+void directionControl();
+void speedControl();
 
-Adafruit_MPU6050 mpu;
+void setup() {
+  Serial.begin(9600);
 
-void setup(void) {
-  Serial.begin(115200);
-  while (!Serial)
-    delay(10); // Wait for Serial Monitor to open
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
 
-  Serial.println("Adafruit MPU6050 test!");
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
 
-  // Initialize the MPU6050 sensor
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
-    }
-  }
-  Serial.println("MPU6050 Found!");
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
 
-  // Set up the accelerometer range
-  mpu.setAccelerometerRange(MPU6050_RANGE_8_G); // Options: 2_G, 4_G, 8_G, 16_G
-
-  // Set up the gyroscope range
-  mpu.setGyroRange(MPU6050_RANGE_500_DEG); // Options: 250, 500, 1000, 2000 deg/s
-
-  // Set up the filter bandwidth
-  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-
-  delay(100);
+  Serial.println("Arduino started!");
 }
 
 void loop() {
-  /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+  Serial.println("Direction test starting...");
+  directionControl();
 
-  /* Print out the raw converted values to the Serial Monitor */
-  Serial.print("Acceleration X: ");
-  Serial.print(a.acceleration.x);
-  Serial.print(", Y: ");
-  Serial.print(a.acceleration.y);
-  Serial.print(", Z: ");
-  Serial.print(a.acceleration.z);
-  Serial.println(" m/s^2");
+  delay(1000);
 
-  Serial.print("Rotation X: ");
-  Serial.print(g.gyro.x);
-  Serial.print(", Y: ");
-  Serial.print(g.gyro.y);
-  Serial.print(", Z: ");
-  Serial.print(g.gyro.z);
-  Serial.println(" rad/s");
+  Serial.println("Speed test starting...");
+  speedControl();
 
-  Serial.print("Temperature: ");
-  Serial.print(temp.temperature);
-  Serial.println(" degC");
+  delay(1000);
 
-  Serial.println("");
-  delay(500); // Read data every 500ms
+  Serial.println("Cycle complete!");
+}
+
+void directionControl() {
+  Serial.println("Forward");
+
+  digitalWrite(enA, HIGH);
+  digitalWrite(enB, HIGH);
+
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+
+  delay(2000);
+
+  Serial.println("Reverse");
+
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+
+  delay(2000);
+
+  Serial.println("Motors OFF");
+
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
+}
+
+void speedControl() {
+  Serial.println("Accelerating...");
+
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+
+  for (int i = 0; i < 256; i++) {
+    analogWrite(enA, i);
+    analogWrite(enB, i);
+    delay(20);
+  }
+
+  Serial.println("Decelerating...");
+
+  for (int i = 255; i >= 0; i--) {
+    analogWrite(enA, i);
+    analogWrite(enB, i);
+    delay(20);
+  }
+
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
+
+  Serial.println("Speed test complete!");
 }
 

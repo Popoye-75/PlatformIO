@@ -1,0 +1,456 @@
+SELF-BALANCING ROBOT PROJECT
+Complete Technical Documentation & Project Handoff
+
+Project: Two-Wheel Self-Balancing Robot
+Microcontroller: Arduino Uno
+Development Environment: PlatformIO
+Operating System: Zorin OS (Ubuntu-based Linux)
+Sensor: Cloned MPU6050 (GY-521 compatible assumed)
+Motor Driver: L298N
+Programming Language: C++ / Arduino Framework
+
+1. PROJECT OBJECTIVE
+
+The objective is to develop a two-wheel self-balancing robot using an Arduino Uno, an MPU6050 accelerometer and gyroscope, and an L298N motor driver.
+
+The robot should maintain its upright position automatically using a PID control algorithm.
+
+The system works by:
+
+Measuring the robot's inclination using the MPU6050.
+Calculating the tilt angle using accelerometer and gyroscope readings.
+Filtering sensor noise using a complementary filter.
+Calculating the correction using a PID controller.
+Controlling both DC motors through the L298N driver.
+Continuously adjusting motor speed and direction to maintain balance.
+2. HARDWARE COMPONENTS
+Component	Description
+Arduino Uno	Main controller
+MPU6050	6-axis accelerometer and gyroscope
+L298N	Dual H-bridge motor driver
+DC geared motors	Two-wheel drive
+Wheels	Two wheels
+Battery	Motor power supply
+Connecting wires	Electrical connections
+Robot chassis	Mechanical structure
+3. HARDWARE CONNECTIONS
+3.1 MPU6050 to Arduino Uno
+MPU6050 Pin	Arduino Pin	Purpose
+VCC	5V*	Sensor power
+GND	GND	Common ground
+SCL	A5	I2C clock
+SDA	A4	I2C data
+INT	D2	Optional interrupt
+
+Verify the voltage requirements of the particular breakout board. A bare MPU6050 chip requires 3.3V logic and appropriate power regulation.
+
+3.2 L298N to Arduino Uno
+L298N Pin	Arduino Pin	Purpose
+ENA	D10	Left motor PWM
+IN1	D8	Left motor direction
+IN2	D9	Left motor direction
+ENB	D5	Right motor PWM
+IN3	D6	Right motor direction
+IN4	D7	Right motor direction
+3.3 Important electrical considerations
+Arduino GND, MPU6050 GND and L298N GND must be connected together.
+Motors should use a suitable external motor power supply.
+Do not power motors directly from Arduino 5V.
+Ensure the battery can supply the motor's startup and stall current.
+Check the L298N ENA and ENB jumper configuration before using PWM.
+Keep motor power wiring away from sensitive MPU6050 signal wiring where possible.
+4. DEVELOPMENT ENVIRONMENT
+
+The project uses PlatformIO instead of the Arduino IDE.
+
+Operating system: Zorin OS.
+
+PlatformIO was installed through pipx.
+
+Installation command:
+
+bash
+pipx install platformio
+
+
+PATH configuration:
+
+bash
+pipx ensurepath
+
+
+Temporary PATH configuration:
+
+bash
+export PATH="$HOME/.local/bin:$PATH"
+
+
+Verify installation:
+
+bash
+pio --version
+
+
+Installed version: PlatformIO Core 6.2.0.
+
+4.1 Create project
+bash
+mkdir MPU6050_Project
+cd MPU6050_Project
+
+pio project init --board uno
+
+4.2 Project structure
+text
+MPU6050_Project/
+│
+├── platformio.ini
+│
+├── src/
+│   └── main.cpp
+│
+├── include/
+├── lib/
+└── test/
+
+4.3 platformio.ini
+ini
+[env:uno]
+platform = atmelavr
+board = uno
+framework = arduino
+monitor_speed = 9600
+
+4.4 Build project
+bash
+pio run
+
+4.5 Upload program
+bash
+pio run -t upload
+
+
+If required, specify the serial port:
+
+bash
+pio run -t upload --upload-port /dev/ttyACM0
+
+4.6 Serial monitor
+bash
+pio device monitor -b 9600
+
+5. LINUX SERIAL PORT PERMISSIONS
+
+A permission problem was encountered:
+
+text
+could not open port /dev/ttyS0:
+[Errno 13] Permission denied
+
+
+Temporary permission fix:
+
+bash
+sudo chmod 666 /dev/ttyACM0
+
+
+Check available ports:
+
+bash
+pio device list
+
+
+Alternative:
+
+bash
+ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null
+
+
+Permanent permission solution:
+
+bash
+sudo usermod -aG dialout $USER
+
+
+Log out and log back in after applying this command.
+
+IMPORTANT: /dev/ttyS0 is generally a hardware serial port, not the USB serial port of an Arduino Uno. Always check the actual device.
+
+6. MPU6050 CLONE DETAILS
+
+The MPU6050 module may be a clone rather than an original InvenSense device.
+
+Therefore, the project uses direct I2C communication instead of depending on an external MPU6050 Arduino library.
+
+I2C configuration:
+
+Parameter	Value
+I2C address	0x68 (assumed)
+SDA	A4
+SCL	A5
+Accelerometer output register	0x3B
+Power management register	0x6B
+Gyroscope configuration	0x1B
+Accelerometer configuration	0x1C
+Accelerometer range	±2g
+Gyroscope range	±250 degrees/sec
+
+The I2C address may also be 0x69 depending on AD0 configuration.
+
+The sensor must be tested using an I2C scanner before assuming the address.
+
+7. BASIC MPU6050 TEST CODE
+
+The following code was used to verify sensor communication.
+
+cpp
+#include <Arduino.h>
+#include <Wire.h>
+
+#define MPU 0x68
+
+void setup()
+{
+    Serial.begin(9600);
+    Wire.begin();
+
+    Wire.beginTransmission(MPU);
+    Wire.write(0x6B);
+    Wire.write(0x00);
+
+    byte error = Wire.endTransmission();
+
+    if (error == 0)
+        Serial.println("MPU6050 Connected!");
+    else
+        Serial.println("MPU6050 Not Found!");
+}
+
+void loop()
+{
+    Wire.beginTransmission(MPU);
+    Wire.write(0x3B);
+    Wire.endTransmission(false);
+
+    Wire.requestFrom(MPU, 6, true);
+
+    if (Wire.available() >= 6)
+    {
+        int16_t ax = Wire.read() << 8 | Wire.read();
+        int16_t ay = Wire.read() << 8 | Wire.read();
+        int16_t az = Wire.read() << 8 | Wire.read();
+
+        Serial.print("AX: ");
+        Serial.print(ax);
+        Serial.print(" AY: ");
+        Serial.print(ay);
+        Serial.print(" AZ: ");
+        Serial.println(az);
+    }
+
+    delay(500);
+}
+
+
+This code reads raw accelerometer values.
+
+8. SELF-BALANCING ROBOT CONTROL SYSTEM
+
+The robot uses three major software algorithms.
+
+8.1 Accelerometer angle calculation
+
+The accelerometer measures acceleration along three axes.
+
+An angle can be estimated using:
+
+cpp
+float accelAngle = atan2(ax, az) * 180.0 / PI;
+
+
+The correct axis combination depends on how the sensor is mounted.
+
+8.2 Gyroscope angle calculation
+
+The gyroscope measures angular velocity.
+
+For the ±250 degrees/sec configuration:
+
+cpp
+float gyroRate = (gy - gyroOffsetY) / 131.0;
+
+
+Angle integration:
+
+cpp
+angle = angle + gyroRate * dt;
+
+
+The gyroscope requires calibration to compensate for its zero-rate offset.
+
+8.3 Complementary filter
+
+The complementary filter combines accelerometer and gyroscope readings.
+
+Formula:
+
+cpp
+angle = 0.98 * (angle + gyroRate * dt)
+      + 0.02 * accelAngle;
+
+
+The gyroscope provides short-term responsiveness, while the accelerometer corrects long-term drift.
+
+8.4 PID controller
+
+The PID controller calculates the motor correction.
+
+Formula:
+
+text
+Error = Measured Angle - Target Angle
+
+PID = Kp * Error
+    + Ki * Integral
+    + Kd * Derivative
+
+
+Initial experimental parameters:
+
+Parameter	Value
+Kp	22.0
+Ki	0.0
+Kd	0.9
+
+These values are unverified starting values and must be tuned for the actual robot.
+
+9. CURRENT SELF-BALANCING CODE STATUS
+
+The current implementation includes:
+
+Direct MPU6050 I2C communication.
+Gyroscope calibration using 1000 samples.
+Accelerometer reading.
+Gyroscope reading.
+Complementary filter.
+PID controller.
+L298N motor direction control.
+PWM motor speed control.
+±35 degree fall safety cutoff.
+Serial debugging output.
+
+The current code uses a nominal 5 ms controller interval.
+
+IMPORTANT DEVELOPMENT NOTES:
+
+The actual sensor mounting orientation has not yet been confirmed.
+The correct gyroscope axis must be experimentally verified.
+The correct accelerometer angle axis must be experimentally verified.
+Left and right motor direction must be tested separately.
+The motor correction sign must be verified before floor testing.
+The current PID constants have not been experimentally tuned.
+The controller should be tested with the robot safely supported before attempting free balancing.
+The current implementation does not yet include wheel encoders, speed control, or position control.
+The loop currently uses a nominal interval rather than a fully deterministic fixed-rate scheduler.
+Sensor communication failure should trigger a motor stop.
+10. MOTOR CONTROL LOGIC
+
+The current motor control function uses:
+
+cpp
+void setMotor(int left, int right)
+
+
+Motor speed range:
+
+text
+-255 to +255
+
+
+Positive values represent one direction and negative values represent the opposite direction.
+
+The actual forward direction depends on motor wiring.
+
+The L298N receives PWM signals through ENA and ENB.
+
+Both motors currently receive the same PID correction.
+
+Motor polarity and mechanical alignment must be checked before balancing tests.
+
+11. PROJECT DEVELOPMENT STATUS
+Task	Status
+PlatformIO installation	Completed
+Arduino Uno project creation	Completed
+MPU6050 basic I2C code	Prepared
+MPU6050 direct communication	Prepared
+L298N pin configuration	Defined
+Complementary filter	Implemented in initial code
+PID controller	Implemented in initial code
+Gyroscope calibration	Implemented in initial code
+Motor PWM control	Implemented in initial code
+Physical balancing	Not yet verified
+PID tuning	Pending
+Motor direction verification	Pending
+Sensor orientation verification	Pending
+Battery and power testing	Pending
+12. PENDING INFORMATION
+
+The following information is still needed to improve the robot controller:
+
+Motor type: Yellow TT geared motor or another type?
+Motor RPM: 150 RPM, 200 RPM, or another rating?
+Wheel diameter: 65 mm, 80 mm, 100 mm, or another size?
+MPU6050 mounting: Component side facing upward or another orientation?
+Robot chassis weight.
+Battery voltage and capacity.
+Actual I2C address of the cloned MPU6050.
+Whether the robot has wheel encoders.
+13. FUTURE IMPROVEMENTS
+
+After the basic robot can balance, the following features can be developed:
+
+Better PID tuning.
+Improved sensor filtering.
+Fixed-frequency control loop.
+MPU6050 interrupt-based sampling.
+Wheel encoder integration.
+Speed and position control.
+Battery voltage monitoring.
+Low-battery protection.
+Bluetooth remote control.
+Wireless tuning of PID parameters.
+Improved motor response compensation.
+14. INSTRUCTIONS FOR CONTINUING THIS PROJECT WITH CHATGPT
+
+When this document is uploaded in a new ChatGPT conversation, use the following instructions:
+
+"I am continuing my two-wheel self-balancing robot project.
+
+Read the complete project documentation first.
+
+My hardware is:
+
+Arduino Uno
+Cloned MPU6050
+L298N motor driver
+Two DC geared motors
+
+My development environment is PlatformIO on Zorin OS.
+
+Use the existing pin connections and project structure described in the documentation.
+
+Do not assume that the cloned MPU6050 behaves exactly like the original sensor.
+
+Continue from the existing implementation instead of starting the project from scratch.
+
+Before changing the controller, verify sensor axis orientation, motor direction, timing, and PID sign conventions.
+
+Explain every important code modification.
+
+Provide complete PlatformIO-compatible C++ code whenever I request a new implementation.
+
+Help me develop the robot incrementally until it balances reliably."
+
+END OF PROJECT DOCUMENTATION
+
+Project status: Initial software implementation prepared; physical testing and calibration pending.
